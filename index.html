@@ -507,8 +507,7 @@
 </footer>
 
 <script>
-const API_KEY = 'AIzaSyC_3yUn37wQHx9wCWez3vHvbokWq3fPc8o';
-const CX = 'e06daae5c01554e16';
+const TAVILY_KEY = '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';
 
 const COLORS = ['#7b6ef6','#34d399','#f87171','#fbbf24','#a78bfa','#38bdf8'];
 
@@ -541,27 +540,33 @@ async function doSearch() {
   msg.style.display = 'none';
   meta.innerHTML = '<span class="loading-dots">검색 중</span>';
 
-  document.getElementById('home').scrollIntoView({ behavior: 'smooth' });
   setTimeout(() => rs.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
 
   const t0 = Date.now();
   try {
-    const res = await fetch(
-      `https://www.googleapis.com/customsearch/v1?key=${API_KEY}&cx=${CX}&q=${encodeURIComponent(q)}&num=10&hl=ko`
-    );
+    const res = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: TAVILY_KEY,
+        query: q,
+        num_results: 10,
+        search_depth: 'basic',
+        include_answer: false
+      })
+    });
     const data = await res.json();
     const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
 
-    if (data.error) {
+    if (!res.ok) {
       meta.textContent = '';
       msg.style.display = 'block';
-      msg.textContent = '오류: ' + data.error.message;
+      msg.textContent = '오류: ' + (data.detail || data.message || '알 수 없는 오류');
       return;
     }
 
-    const items = data.items || [];
-    const total = data.searchInformation?.totalResults || '0';
-    meta.innerHTML = `<b>${Number(total).toLocaleString()}</b>개의 검색결과 (${elapsed}초)`;
+    const items = data.results || [];
+    meta.innerHTML = `<b>${items.length}</b>개의 검색결과 (${elapsed}초)`;
 
     if (items.length === 0) {
       list.innerHTML = '<div style="padding:3rem 0;text-align:center;color:var(--text3);font-size:14px;">검색 결과가 없습니다.</div>';
@@ -569,16 +574,16 @@ async function doSearch() {
     }
 
     list.innerHTML = items.map((item, i) => {
-      const domain = getDomain(item.link);
+      const domain = getDomain(item.url);
       const fc = getFavColor(domain);
       const fl = domain[0].toUpperCase();
-      const snippet = (item.snippet || '').replace(/\n/g, ' ');
+      const snippet = (item.content || '').replace(/\n/g, ' ').slice(0, 200) + '...';
       return `<div class="rcard" style="animation-delay:${i * 0.05}s">
         <div class="rurl">
           <span class="fav" style="background:${fc}">${fl}</span>
           ${domain}
         </div>
-        <a class="rtitle" href="${item.link}" target="_blank">${item.title}</a>
+        <a class="rtitle" href="${item.url}" target="_blank">${item.title}</a>
         <div class="rdesc">${snippet}</div>
       </div>`;
     }).join('');
