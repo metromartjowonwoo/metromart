@@ -1,0 +1,1816 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>jojoa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #111118;
+    --bg3: #16161f;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #f0f0f5;
+    --text2: #8888a0;
+    --text3: #55556a;
+    --accent: #7b6ef6;
+    --accent2: #a78bfa;
+    --accent3: #34d399;
+    --red: #f87171;
+    --amber: #fbbf24;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* noise overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* glow orbs */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.18;
+  }
+  .orb1 { width: 600px; height: 600px; background: var(--accent); top: -200px; left: -100px; }
+  .orb2 { width: 400px; height: 400px; background: var(--accent3); bottom: -100px; right: -80px; }
+
+  /* NAV */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2.5rem;
+    height: 58px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,15,0.75);
+    backdrop-filter: blur(14px);
+  }
+  .nav-logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .nav-logo span { color: var(--accent2); }
+  .nav-links { display: flex; gap: 2rem; }
+  .nav-links a {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text2);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--text); }
+  .auth-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 6px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .auth-btn:hover {
+    background: var(--accent2);
+  }
+
+  /* HERO */
+  #home {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6rem 2rem 4rem;
+    text-align: center;
+  }
+  .hero-eyebrow {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    animation: fadeUp 0.7s 0.1s forwards;
+  }
+  .hero-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(64px, 10vw, 120px);
+    line-height: 1;
+    letter-spacing: -3px;
+    color: var(--text);
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.2s forwards;
+  }
+  .hero-title em { font-style: italic; color: var(--accent2); }
+  .hero-sub {
+    font-size: 16px;
+    font-weight: 300;
+    color: var(--text2);
+    max-width: 440px;
+    line-height: 1.7;
+    margin-bottom: 3rem;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.35s forwards;
+  }
+
+  /* SEARCH BOX */
+  .search-wrap {
+    width: 100%;
+    max-width: 640px;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.5s forwards;
+  }
+  .search-box {
+    display: flex;
+    align-items: center;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    padding: 6px 6px 6px 20px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .search-box:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(123,110,246,0.15);
+  }
+  .search-icon {
+    width: 18px; height: 18px;
+    color: var(--text3);
+    flex-shrink: 0;
+    margin-right: 12px;
+  }
+  #q {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 300;
+    color: var(--text);
+    caret-color: var(--accent2);
+  }
+  #q::placeholder { color: var(--text3); }
+  #btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 22px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    flex-shrink: 0;
+  }
+  #btn:hover { background: var(--accent2); }
+  #btn:active { transform: scale(0.97); }
+
+  /* CHIPS */
+  .chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 1.2rem;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.65s forwards;
+  }
+  .chip {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text2);
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 14px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .chip:hover { color: var(--text); border-color: var(--border2); }
+
+  /* 단축키 아이콘 */
+  .shortcuts {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    margin-top: 2.5rem;
+    flex-wrap: wrap;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.8s forwards;
+  }
+  .shortcut-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+    transition: transform 0.2s;
+    cursor: pointer;
+  }
+  .shortcut-item:hover {
+    transform: translateY(-3px);
+  }
+  .shortcut-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    transition: all 0.2s;
+  }
+  .shortcut-item:hover .shortcut-icon {
+    border-color: var(--accent2);
+    box-shadow: 0 4px 12px rgba(167,139,250,0.15);
+  }
+  .shortcut-label {
+    font-size: 11px;
+    color: var(--text2);
+    font-weight: 400;
+  }
+
+  /* 단축키 관리 버튼 */
+  .manage-shortcuts {
+    text-align: center;
+    margin-top: 1.5rem;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.95s forwards;
+  }
+  .manage-btn {
+    font-size: 11px;
+    color: var(--text3);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .manage-btn:hover {
+    color: var(--accent2);
+    border-color: var(--border2);
+  }
+
+  /* 단축키 관리 모달 */
+  .shortcut-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-content {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 2rem;
+    position: relative;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  .modal-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 24px;
+    color: var(--text);
+  }
+  .modal-close {
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px;
+    transition: color 0.2s;
+  }
+  .modal-close:hover { color: var(--text); }
+  
+  .shortcut-form {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .form-group {
+    margin-bottom: 1rem;
+  }
+  .form-label {
+    display: block;
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+  .form-input {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    transition: border-color 0.2s;
+  }
+  .form-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .icon-selector {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+    margin-top: 0.5rem;
+  }
+  .icon-option {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    cursor: pointer;
+    border: 2px solid var(--border);
+    background: var(--bg2);
+    transition: all 0.2s;
+  }
+  .icon-option:hover {
+    border-color: var(--accent2);
+    transform: scale(1.1);
+  }
+  .icon-option.selected {
+    border-color: var(--accent);
+    background: rgba(123,110,246,0.1);
+  }
+  .color-selector {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+    margin-top: 0.5rem;
+  }
+  .color-option {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 2px solid var(--border);
+    transition: all 0.2s;
+  }
+  .color-option:hover {
+    transform: scale(1.1);
+  }
+  .color-option.selected {
+    border-color: white;
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  .btn-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 1rem;
+  }
+  .btn {
+    flex: 1;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+  .btn-primary:hover {
+    background: var(--accent2);
+  }
+  .btn-secondary {
+    background: var(--bg3);
+    color: var(--text2);
+    border: 1px solid var(--border2);
+  }
+  .btn-secondary:hover {
+    color: var(--text);
+    border-color: var(--accent2);
+  }
+
+  .shortcuts-list {
+    margin-top: 1.5rem;
+  }
+  .shortcut-item-edit {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 0.5rem;
+  }
+  .shortcut-item-edit:hover {
+    border-color: var(--border2);
+  }
+  .edit-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .edit-info {
+    flex: 1;
+  }
+  .edit-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .edit-url {
+    font-size: 11px;
+    color: var(--text3);
+  }
+  .edit-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text3);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  .icon-btn:hover {
+    color: var(--text);
+    border-color: var(--border2);
+  }
+  .icon-btn.delete:hover {
+    color: var(--red);
+    border-color: var(--red);
+  }
+
+  /* 추천 단축키 */
+  .suggested-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .suggested-item:hover {
+    border-color: var(--accent2);
+    background: var(--bg2);
+    transform: translateY(-2px);
+  }
+
+  /* 인증 모달 */
+  .auth-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .auth-content {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 420px;
+    padding: 2.5rem;
+    position: relative;
+  }
+  .auth-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  .auth-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+  .auth-subtitle {
+    font-size: 13px;
+    color: var(--text3);
+  }
+  .auth-tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    background: var(--bg3);
+    padding: 4px;
+    border-radius: 10px;
+  }
+  .auth-tab {
+    flex: 1;
+    padding: 10px;
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .auth-tab.active {
+    background: var(--accent);
+    color: white;
+  }
+  .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .auth-input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    transition: border-color 0.2s;
+  }
+  .auth-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .auth-submit {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif;
+    margin-top: 0.5rem;
+  }
+  .auth-submit:hover {
+    background: var(--accent2);
+  }
+  .auth-divider {
+    text-align: center;
+    color: var(--text3);
+    font-size: 12px;
+    margin: 1.5rem 0;
+    position: relative;
+  }
+  .auth-divider::before,
+  .auth-divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 40%;
+    height: 1px;
+    background: var(--border);
+  }
+  .auth-divider::before { left: 0; }
+  .auth-divider::after { right: 0; }
+  .google-btn {
+    width: 100%;
+    background: white;
+    color: #333;
+    border: 1px solid #ddd;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .google-btn:hover {
+    background: #f8f8f8;
+  }
+  .auth-close {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px;
+    transition: color 0.2s;
+  }
+  .auth-close:hover { color: var(--text); }
+
+  /* DIVIDER */
+  .section-divider {
+    position: relative;
+    z-index: 1;
+    height: 1px;
+    background: var(--border);
+    margin: 0 2.5rem;
+  }
+
+  /* RESULTS SECTION */
+  #results-section {
+    position: relative;
+    z-index: 1;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 2rem 2rem 4rem;
+    display: none;
+  }
+  .results-meta {
+    font-size: 12px;
+    color: var(--text3);
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .results-meta b { color: var(--text2); font-weight: 500; }
+
+  .tab-row {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 1.5rem;
+  }
+  .tab {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text3);
+    padding: 5px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+  }
+  .tab.on {
+    color: var(--accent2);
+    border-color: rgba(167,139,250,0.3);
+    background: rgba(167,139,250,0.07);
+  }
+  .tab:hover:not(.on) { color: var(--text2); }
+
+  .rcard {
+    padding: 1.2rem 0;
+    border-bottom: 1px solid var(--border);
+    animation: fadeUp 0.4s both;
+  }
+  .rcard:last-child { border-bottom: none; }
+  .rurl {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    color: var(--accent3);
+    margin-bottom: 4px;
+    opacity: 0.8;
+  }
+  .fav {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .rtitle {
+    display: block;
+    font-family: 'DM Serif Display', serif;
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 5px;
+    line-height: 1.3;
+    transition: color 0.15s;
+  }
+  .rtitle:hover { color: var(--accent2); }
+  .rdesc {
+    font-size: 13px;
+    font-weight: 300;
+    color: var(--text2);
+    line-height: 1.65;
+  }
+
+  #msg {
+    text-align: center;
+    padding: 3rem 0;
+    font-size: 14px;
+    color: var(--text3);
+    display: none;
+  }
+
+  /* FEATURES SECTION */
+  #features {
+    position: relative;
+    z-index: 1;
+    padding: 6rem 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .section-label {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 1rem;
+  }
+  .section-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(32px, 5vw, 52px);
+    letter-spacing: -1px;
+    color: var(--text);
+    margin-bottom: 1rem;
+  }
+  .section-sub {
+    font-size: 15px;
+    font-weight: 300;
+    color: var(--text2);
+    max-width: 480px;
+    margin: 0 auto 3.5rem;
+    line-height: 1.7;
+  }
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .jojoa-banner {
+    grid-column: span 2;
+  }
+  .feature-card {
+    background: var(--bg2);
+    padding: 2rem 1.8rem;
+    text-align: left;
+    transition: background 0.2s;
+  }
+  .feature-card:hover { background: var(--bg3); }
+  .jojoa-banner:hover {
+    background: var(--bg3) !important;
+    transform: translateY(-4px);
+    box-shadow: 0 10px 30px rgba(255, 107, 157, 0.2);
+  }
+  .jojoa-banner { transition: all 0.3s ease; }
+  .feature-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 1.2rem;
+    font-size: 16px;
+  }
+  .feature-card h3 {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+  .feature-card p {
+    font-size: 13px;
+    font-weight: 300;
+    color: var(--text2);
+    line-height: 1.65;
+  }
+
+  /* FOOTER */
+  footer {
+    position: relative;
+    z-index: 1;
+    border-top: 1px solid var(--border);
+    padding: 2rem 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  footer .fl {
+    font-family: 'DM Serif Display', serif;
+    font-size: 16px;
+    color: var(--text2);
+  }
+  footer .fl span { color: var(--accent2); }
+  footer p {
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .loading-dots::after {
+    content: '';
+    animation: dots 1.2s infinite;
+  }
+  @keyframes dots {
+    0%   { content: '.'; }
+    33%  { content: '..'; }
+    66%  { content: '...'; }
+  }
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<nav>
+  <a class="nav-logo" href="#home">jo<span>jo</span>a</a>
+  <div class="nav-links">
+    <a href="#home">홈</a>
+    <a href="#features">소개</a>
+    <a href="jojoa_관리자페이지.html" target="_blank" style="color:var(--accent3);">🔧 관리자</a>
+    <button id="authBtn" class="auth-btn" onclick="showAuthModal()">로그인</button>
+  </div>
+</nav>
+
+<section id="home">
+  <h1 class="hero-title">jo<em>jo</em>a</h1>
+  <p class="hero-sub">빠르고 정확하게. 세상 모든 정보를 한 곳에서 검색하세요.</p>
+
+  <div class="search-wrap">
+    <div class="search-box">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input id="q" type="text" placeholder="무엇이든 검색해보세요..." autocomplete="off"
+        onkeydown="if(event.key==='Enter')doSearch()"/>
+      <button id="btn" onclick="doSearch()">검색</button>
+    </div>
+    <div class="chips">
+      <span class="chip" onclick="setQ('오늘 날씨')">오늘 날씨</span>
+      <span class="chip" onclick="setQ('부산 맛집')">부산 맛집</span>
+      <span class="chip" onclick="setQ('최신 뉴스')">최신 뉴스</span>
+      <span class="chip" onclick="setQ('파이썬 튜토리얼')">파이썬 튜토리얼</span>
+      <span class="chip" onclick="setQ('주식 시황')">주식 시황</span>
+    </div>
+  </div>
+
+  <!-- 단축키 아이콘 -->
+  <div class="shortcuts" id="shortcuts">
+    <a href="https://www.naver.com" target="_blank" class="shortcut-item">
+      <div class="shortcut-icon" style="background:#03C75A;border-color:#03C75A;">
+        <span style="color:white;font-weight:bold;font-size:20px;">N</span>
+      </div>
+      <span class="shortcut-label">네이버</span>
+    </a>
+    <a href="https://www.youtube.com" target="_blank" class="shortcut-item">
+      <div class="shortcut-icon" style="background:#FF0000;border-color:#FF0000;">
+        <span style="color:white;font-size:18px;">▶</span>
+      </div>
+      <span class="shortcut-label">유튜브</span>
+    </a>
+    <a href="https://www.tiktok.com" target="_blank" class="shortcut-item">
+      <div class="shortcut-icon" style="background:#000000;border-color:#000000;">
+        <span style="color:white;font-weight:bold;font-size:20px;">t</span>
+      </div>
+      <span class="shortcut-label">틱톡</span>
+    </a>
+    <a href="https://chat.openai.com" target="_blank" class="shortcut-item">
+      <div class="shortcut-icon" style="background:#10A37F;border-color:#10A37F;">
+        <span style="color:white;font-size:18px;">💬</span>
+      </div>
+      <span class="shortcut-label">ChatGPT</span>
+    </a>
+    <a href="https://gemini.google.com" target="_blank" class="shortcut-item">
+      <div class="shortcut-icon" style="background:linear-gradient(135deg, #4285F4, #DB4437);border:none;">
+        <span style="color:white;font-size:18px;">✨</span>
+      </div>
+      <span class="shortcut-label">Gemini</span>
+    </a>
+    <a href="https://claude.ai" target="_blank" class="shortcut-item">
+      <div class="shortcut-icon" style="background:#CC9B7A;border-color:#CC9B7A;">
+        <span style="color:white;font-size:18px;">🤖</span>
+      </div>
+      <span class="shortcut-label">Claude</span>
+    </a>
+    <a href="https://metromartjowonwoo.github.io/jojoa/" target="_blank" class="shortcut-item">
+      <div class="shortcut-icon" style="background:linear-gradient(135deg, #FF6B9D, #FFA07A);border:none;">
+        <span style="color:white;font-size:18px;">🐾</span>
+      </div>
+      <span class="shortcut-label">조조아</span>
+    </a>
+  </div>
+
+  <div class="manage-shortcuts">
+    <button class="manage-btn" onclick="manageShortcuts()">+ 단축키 추가</button>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<section id="results-section">
+  <div class="results-meta" id="meta"></div>
+  <div class="tab-row">
+    <div class="tab on">전체</div>
+    <div class="tab">뉴스</div>
+    <div class="tab">이미지</div>
+  </div>
+  <div id="list"></div>
+  <div id="msg"></div>
+</section>
+
+<section id="features">
+  <div class="section-label">왜 jojoa인가</div>
+  <h2 class="section-title">검색, 다시 생각하다</h2>
+  <p class="section-sub">Google의 강력한 검색 엔진 위에 jojoa만의 경험을 더했습니다.</p>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(123,110,246,0.15);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </div>
+      <h3>구글 기반 검색</h3>
+      <p>Google Custom Search API를 사용해 전 세계 웹을 빠르고 정확하게 탐색합니다.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(52,211,153,0.12);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      </div>
+      <h3>빠른 응답</h3>
+      <p>최적화된 API 요청으로 0.3초 내외의 빠른 검색 결과를 제공합니다.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(251,191,36,0.12);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>
+      </div>
+      <h3>실시간 정보</h3>
+      <p>뉴스, 날씨, 주식 등 빠르게 변하는 정보도 항상 최신 상태로 제공합니다.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(248,113,113,0.12);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <h3>광고 없는 경험</h3>
+      <p>불필요한 광고 없이 순수한 검색 결과만을 깔끔하게 보여줍니다.</p>
+    </div>
+    <a href="https://metromartjowonwoo.github.io/jojoa/" target="_blank" class="feature-card jojoa-banner" style="text-decoration:none;cursor:pointer;display:flex;align-items:center;gap:1.5rem;padding:1.8rem 2rem;position:relative;overflow:hidden;">
+      <div style="position:absolute;right:0;top:0;bottom:0;width:40%;background:linear-gradient(90deg, var(--bg2) 0%, transparent 100%);pointer-events:none;"></div>
+      <img src="https://images.unsplash.com/photo-1574158622682-e40e69881006?w=200&h=200&fit=crop" alt="고양이" style="width:80px;height:80px;border-radius:12px;object-fit:cover;flex-shrink:0;border:2px solid rgba(255,107,157,0.3);position:relative;z-index:1;">
+      <div style="flex:1;position:relative;z-index:1;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.5rem;">
+          <div class="feature-icon" style="background:linear-gradient(135deg, #FF6B9D 0%, #FFA07A 100%);width:28px;height:28px;margin:0;">
+            <span style="font-size:14px;">🐾</span>
+          </div>
+          <h3 style="background:linear-gradient(135deg, #FF6B9D, #FFA07A);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin:0;font-size:16px;">조조아 애견용품</h3>
+        </div>
+        <p style="margin:0;font-size:13px;">오늘만 특가! 최대 44% 할인 🎉</p>
+        <div style="color:#FF6B9D;font-weight:500;font-size:12px;margin-top:0.5rem;">→ 지금 바로 쇼핑하기</div>
+      </div>
+      <img src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=150&h=150&fit=crop" alt="강아지" style="width:70px;height:70px;border-radius:12px;object-fit:cover;flex-shrink:0;border:2px solid rgba(255,107,157,0.3);position:relative;z-index:1;display:none;">
+    </a>
+  </div>
+</section>
+
+<footer>
+  <div class="fl">jo<span>jo</span>a</div>
+  <p>Powered by Google Custom Search · 2026</p>
+</footer>
+
+<!-- 단축키 관리 모달 -->
+<div class="shortcut-modal" id="shortcutModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title">단축키 관리</h2>
+      <button class="modal-close" onclick="closeShortcutModal()">×</button>
+    </div>
+
+    <div class="shortcut-form">
+      <div class="form-group">
+        <label class="form-label">이름</label>
+        <input type="text" class="form-input" id="shortcutName" placeholder="예: 인스타그램">
+      </div>
+      <div class="form-group">
+        <label class="form-label">URL</label>
+        <input type="url" class="form-input" id="shortcutUrl" placeholder="https://www.instagram.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">아이콘</label>
+        <div class="icon-selector">
+          <div class="icon-option" onclick="selectIcon('🏠')">🏠</div>
+          <div class="icon-option" onclick="selectIcon('📱')">📱</div>
+          <div class="icon-option" onclick="selectIcon('💬')">💬</div>
+          <div class="icon-option" onclick="selectIcon('📧')">📧</div>
+          <div class="icon-option" onclick="selectIcon('🎵')">🎵</div>
+          <div class="icon-option" onclick="selectIcon('📸')">📸</div>
+          <div class="icon-option" onclick="selectIcon('🎮')">🎮</div>
+          <div class="icon-option" onclick="selectIcon('🛒')">🛒</div>
+          <div class="icon-option" onclick="selectIcon('📺')">📺</div>
+          <div class="icon-option" onclick="selectIcon('🎬')">🎬</div>
+          <div class="icon-option" onclick="selectIcon('📚')">📚</div>
+          <div class="icon-option" onclick="selectIcon('✈️')">✈️</div>
+          <div class="icon-option" onclick="selectIcon('🍔')">🍔</div>
+          <div class="icon-option" onclick="selectIcon('☕')">☕</div>
+          <div class="icon-option" onclick="selectIcon('🎨')">🎨</div>
+          <div class="icon-option" onclick="selectIcon('⚡')">⚡</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">배경 색상</label>
+        <div class="color-selector">
+          <div class="color-option" style="background:#7b6ef6" onclick="selectColor('#7b6ef6')"></div>
+          <div class="color-option" style="background:#34d399" onclick="selectColor('#34d399')"></div>
+          <div class="color-option" style="background:#f87171" onclick="selectColor('#f87171')"></div>
+          <div class="color-option" style="background:#fbbf24" onclick="selectColor('#fbbf24')"></div>
+          <div class="color-option" style="background:#a78bfa" onclick="selectColor('#a78bfa')"></div>
+          <div class="color-option" style="background:#38bdf8" onclick="selectColor('#38bdf8')"></div>
+          <div class="color-option" style="background:#FF6B9D" onclick="selectColor('#FF6B9D')"></div>
+          <div class="color-option" style="background:#2dd4bf" onclick="selectColor('#2dd4bf')"></div>
+        </div>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="addShortcut()">추가</button>
+        <button class="btn btn-secondary" onclick="clearForm()">취소</button>
+      </div>
+    </div>
+
+    <!-- 추천 단축키 섹션 -->
+    <div style="margin-top:2rem;padding-top:2rem;border-top:1px solid var(--border);">
+      <h3 style="font-size:14px;color:var(--text2);margin-bottom:1rem;">⭐ 추천 단축키</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0.8rem;">
+        <div class="suggested-item" onclick="addSuggested(0)">
+          <div style="width:36px;height:36px;background:#03C75A;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:0.5rem;">
+            <span style="color:white;font-weight:bold;font-size:16px;">N</span>
+          </div>
+          <div style="font-size:12px;color:var(--text);">네이버</div>
+        </div>
+        <div class="suggested-item" onclick="addSuggested(1)">
+          <div style="width:36px;height:36px;background:#FF0000;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:0.5rem;">
+            <span style="color:white;font-size:14px;">▶</span>
+          </div>
+          <div style="font-size:12px;color:var(--text);">유튜브</div>
+        </div>
+        <div class="suggested-item" onclick="addSuggested(2)">
+          <div style="width:36px;height:36px;background:#000000;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:0.5rem;">
+            <span style="color:white;font-weight:bold;font-size:16px;">t</span>
+          </div>
+          <div style="font-size:12px;color:var(--text);">틱톡</div>
+        </div>
+        <div class="suggested-item" onclick="addSuggested(3)">
+          <div style="width:36px;height:36px;background:#10A37F;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:0.5rem;">
+            <span style="font-size:14px;">💬</span>
+          </div>
+          <div style="font-size:12px;color:var(--text);">ChatGPT</div>
+        </div>
+        <div class="suggested-item" onclick="addSuggested(4)">
+          <div style="width:36px;height:36px;background:linear-gradient(135deg,#4285F4,#DB4437);border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:0.5rem;">
+            <span style="font-size:14px;">✨</span>
+          </div>
+          <div style="font-size:12px;color:var(--text);">Gemini</div>
+        </div>
+        <div class="suggested-item" onclick="addSuggested(5)">
+          <div style="width:36px;height:36px;background:#CC9B7A;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:0.5rem;">
+            <span style="font-size:14px;">🤖</span>
+          </div>
+          <div style="font-size:12px;color:var(--text);">Claude</div>
+        </div>
+        <div class="suggested-item" onclick="addSuggested(6)">
+          <div style="width:36px;height:36px;background:linear-gradient(135deg,#FF6B9D,#FFA07A);border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:0.5rem;">
+            <span style="font-size:14px;">🐾</span>
+          </div>
+          <div style="font-size:12px;color:var(--text);">조조아</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="shortcuts-list" id="shortcutsList"></div>
+  </div>
+</div>
+
+<!-- 로그인/회원가입 모달 -->
+<div class="auth-modal" id="authModal">
+  <div class="auth-content">
+    <button class="auth-close" onclick="closeAuthModal()">×</button>
+    <div class="auth-header">
+      <h2 class="auth-title">jo<span style="color:var(--accent2);">jo</span>a</h2>
+      <p class="auth-subtitle">로그인하고 어디서든 내 단축키를 사용하세요</p>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">로그인</button>
+      <button class="auth-tab" onclick="switchTab('signup')">회원가입</button>
+    </div>
+
+    <form class="auth-form" id="loginForm" onsubmit="handleLogin(event)">
+      <input type="email" class="auth-input" placeholder="이메일" required>
+      <input type="password" class="auth-input" placeholder="비밀번호" required>
+      <button type="submit" class="auth-submit">로그인</button>
+    </form>
+
+    <form class="auth-form" id="signupForm" style="display:none;" onsubmit="handleSignup(event)">
+      <input type="text" class="auth-input" placeholder="이름" required>
+      <input type="email" class="auth-input" placeholder="이메일" required>
+      <input type="password" class="auth-input" placeholder="비밀번호 (6자 이상)" required>
+      <button type="submit" class="auth-submit">회원가입</button>
+    </form>
+
+    <div class="auth-divider">또는</div>
+
+    <button class="google-btn" onclick="handleGoogleLogin()">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Google로 계속하기
+    </button>
+  </div>
+</div>
+
+<script>
+// Firebase 설정 (데모용 - 실제 사용 시 본인의 Firebase 프로젝트 정보로 교체)
+const firebaseConfig = {
+  apiKey: "AIzaSyDaoaW5lGKXxJi-CVlWrj92itUf440R_MU",
+  authDomain: "jojoa-2b05f.firebaseapp.com",
+  projectId: "jojoa-2b05f",
+  storageBucket: "jojoa-2b05f.firebasestorage.app",
+  messagingSenderId: "204831169873",
+  appId: "1:204831169873:web:c88ffa91b8988e7de0c770",
+  measurementId: "G-KEFR8EYP0R"
+};
+
+// Firebase 초기화
+let app, auth, db;
+let currentUser = null;
+
+try {
+  app = firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db = firebase.firestore();
+  
+  // 로그인 상태 감지
+  auth.onAuthStateChanged((user) => {
+    currentUser = user;
+    updateAuthUI(user);
+    if (user) {
+      loadUserShortcuts(user.uid);
+    }
+  });
+} catch (error) {
+  console.log('Firebase 초기화 실패 (데모 모드):', error);
+  // Firebase 없이도 로컬 스토리지로 작동
+}
+
+// 인증 UI 업데이트
+function updateAuthUI(user) {
+  const authBtn = document.getElementById('authBtn');
+  if (user) {
+    authBtn.textContent = user.displayName || user.email;
+    authBtn.onclick = showUserMenu;
+  } else {
+    authBtn.textContent = '로그인';
+    authBtn.onclick = showAuthModal;
+  }
+}
+
+// 사용자 메뉴 (로그아웃)
+function showUserMenu() {
+  if (confirm('로그아웃 하시겠습니까?')) {
+    auth.signOut().then(() => {
+      saveShortcuts([]);
+      renderShortcuts();
+    });
+  }
+}
+
+// 로그인/회원가입 모달
+function showAuthModal() {
+  document.getElementById('authModal').style.display = 'flex';
+}
+
+function closeAuthModal() {
+  document.getElementById('authModal').style.display = 'none';
+}
+
+function switchTab(tab) {
+  const tabs = document.querySelectorAll('.auth-tab');
+  const loginForm = document.getElementById('loginForm');
+  const signupForm = document.getElementById('signupForm');
+  
+  tabs.forEach(t => t.classList.remove('active'));
+  
+  if (tab === 'login') {
+    tabs[0].classList.add('active');
+    loginForm.style.display = 'flex';
+    signupForm.style.display = 'none';
+  } else {
+    tabs[1].classList.add('active');
+    loginForm.style.display = 'none';
+    signupForm.style.display = 'flex';
+  }
+}
+
+// 로그인 처리
+function handleLogin(e) {
+  e.preventDefault();
+  const form = e.target;
+  const email = form[0].value;
+  const password = form[1].value;
+  
+  if (!auth) {
+    alert('Firebase가 설정되지 않았습니다.\n\n실제 사용하려면:\n1. Firebase 프로젝트 생성\n2. firebaseConfig 교체\n3. Firebase Authentication 활성화');
+    return;
+  }
+  
+  auth.signInWithEmailAndPassword(email, password)
+    .then((userCredential) => {
+      closeAuthModal();
+      alert('로그인 성공! 😊');
+    })
+    .catch((error) => {
+      alert('로그인 실패: ' + error.message);
+    });
+}
+
+// 회원가입 처리
+function handleSignup(e) {
+  e.preventDefault();
+  const form = e.target;
+  const name = form[0].value;
+  const email = form[1].value;
+  const password = form[2].value;
+  
+  if (!auth) {
+    alert('Firebase가 설정되지 않았습니다.\n\n실제 사용하려면:\n1. Firebase 프로젝트 생성\n2. firebaseConfig 교체\n3. Firebase Authentication 활성화');
+    return;
+  }
+  
+  auth.createUserWithEmailAndPassword(email, password)
+    .then((userCredential) => {
+      // 이름 업데이트
+      return userCredential.user.updateProfile({
+        displayName: name
+      });
+    })
+    .then(() => {
+      closeAuthModal();
+      alert('회원가입 성공! 😊');
+    })
+    .catch((error) => {
+      alert('회원가입 실패: ' + error.message);
+    });
+}
+
+// Google 로그인
+function handleGoogleLogin() {
+  if (!auth) {
+    alert('Firebase가 설정되지 않았습니다.\n\n실제 사용하려면:\n1. Firebase 프로젝트 생성\n2. firebaseConfig 교체\n3. Firebase Authentication 활성화\n4. Google 로그인 활성화');
+    return;
+  }
+  
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider)
+    .then((result) => {
+      closeAuthModal();
+      alert('Google 로그인 성공! 😊');
+    })
+    .catch((error) => {
+      alert('Google 로그인 실패: ' + error.message);
+    });
+}
+
+// 사용자 단축키 로드
+function loadUserShortcuts(uid) {
+  if (!db) return;
+  
+  db.collection('users').doc(uid).collection('shortcuts').get()
+    .then((querySnapshot) => {
+      const shortcuts = [];
+      querySnapshot.forEach((doc) => {
+        shortcuts.push(doc.data());
+      });
+      saveShortcuts(shortcuts);
+      renderShortcuts();
+    })
+    .catch((error) => {
+      console.error('단축키 로드 실패:', error);
+    });
+}
+
+// 사용자 단축키 저장 (클라우드)
+function saveUserShortcuts(shortcuts) {
+  if (!currentUser || !db) return;
+  
+  const userRef = db.collection('users').doc(currentUser.uid).collection('shortcuts');
+  
+  // 기존 단축키 삭제
+  userRef.get().then((querySnapshot) => {
+    const batch = db.batch();
+    querySnapshot.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+    return batch.commit();
+  }).then(() => {
+    // 새 단축키 저장
+    const batch = db.batch();
+    shortcuts.forEach((shortcut, index) => {
+      const docRef = userRef.doc(`shortcut_${index}`);
+      batch.set(docRef, shortcut);
+    });
+    return batch.commit();
+  }).catch((error) => {
+    console.error('단축키 저장 실패:', error);
+  });
+}
+
+// 모달 외부 클릭 시 닫기
+document.getElementById('authModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'authModal') {
+    closeAuthModal();
+  }
+});
+
+const TAVILY_KEY = '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';
+
+const COLORS = ['#7b6ef6','#34d399','#f87171','#fbbf24','#a78bfa','#38bdf8'];
+
+function getFavColor(url) {
+  let s = 0;
+  for (let i = 0; i < url.length; i++) s += url.charCodeAt(i);
+  return COLORS[s % COLORS.length];
+}
+
+function getDomain(url) {
+  try { return new URL(url).hostname.replace('www.', ''); } catch { return url; }
+}
+
+function setQ(v) {
+  document.getElementById('q').value = v;
+  doSearch();
+}
+
+async function doSearch() {
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+
+  const rs = document.getElementById('results-section');
+  const list = document.getElementById('list');
+  const msg = document.getElementById('msg');
+  const meta = document.getElementById('meta');
+
+  rs.style.display = 'block';
+  list.innerHTML = '';
+  msg.style.display = 'none';
+  meta.innerHTML = '<span class="loading-dots">검색 중</span>';
+
+  setTimeout(() => rs.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+
+  // 검색 기록 저장
+  saveSearchHistory(q);
+
+  const t0 = Date.now();
+  try {
+    const res = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: TAVILY_KEY,
+        query: q,
+        num_results: 10,
+        search_depth: 'basic',
+        include_answer: false
+      })
+    });
+    const data = await res.json();
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+
+    if (!res.ok) {
+      meta.textContent = '';
+      msg.style.display = 'block';
+      msg.textContent = '오류: ' + (data.detail || data.message || '알 수 없는 오류');
+      return;
+    }
+
+    const items = data.results || [];
+    meta.innerHTML = `<b>${items.length}</b>개의 검색결과 (${elapsed}초)`;
+
+    if (items.length === 0) {
+      list.innerHTML = '<div style="padding:3rem 0;text-align:center;color:var(--text3);font-size:14px;">검색 결과가 없습니다.</div>';
+      return;
+    }
+
+    list.innerHTML = items.map((item, i) => {
+      const domain = getDomain(item.url);
+      const fc = getFavColor(domain);
+      const fl = domain[0].toUpperCase();
+      const snippet = (item.content || '').replace(/\n/g, ' ').slice(0, 200) + '...';
+      return `<div class="rcard" style="animation-delay:${i * 0.05}s">
+        <div class="rurl">
+          <span class="fav" style="background:${fc}">${fl}</span>
+          ${domain}
+        </div>
+        <a class="rtitle" href="${item.url}" target="_blank" onclick="trackClick('${q}', '${item.url}', '${item.title.replace(/'/g, "\\'")}', event)">${item.title}</a>
+        <div class="rdesc">${snippet}</div>
+      </div>`;
+    }).join('');
+
+  } catch (e) {
+    meta.textContent = '';
+    msg.style.display = 'block';
+    msg.textContent = '네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+  }
+}
+
+// 검색 기록 저장
+function saveSearchHistory(query) {
+  if (!db || !currentUser) return;
+  
+  const searchData = {
+    query: query,
+    userId: currentUser.uid,
+    userEmail: currentUser.email,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+    device: navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop'
+  };
+  
+  // Firestore에 저장
+  db.collection('searches').add(searchData).catch(err => {
+    console.log('검색 기록 저장 실패:', err);
+  });
+  
+  // 로컬 검색어 카운트 업데이트
+  updateKeywordCount(query);
+}
+
+// 키워드 인기도 업데이트
+function updateKeywordCount(query) {
+  if (!db) return;
+  
+  const keywordRef = db.collection('keywords').doc(query.toLowerCase());
+  
+  keywordRef.get().then(doc => {
+    if (doc.exists) {
+      keywordRef.update({
+        count: firebase.firestore.FieldValue.increment(1),
+        lastSearched: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      keywordRef.set({
+        keyword: query,
+        count: 1,
+        firstSearched: firebase.firestore.FieldValue.serverTimestamp(),
+        lastSearched: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+  }).catch(err => {
+    console.log('키워드 카운트 실패:', err);
+  });
+}
+
+// 클릭 추적
+function trackClick(query, url, title, event) {
+  if (!db || !currentUser) return true;
+  
+  const clickData = {
+    query: query,
+    url: url,
+    title: title,
+    userId: currentUser.uid,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  
+  db.collection('clicks').add(clickData).catch(err => {
+    console.log('클릭 추적 실패:', err);
+  });
+  
+  return true;
+}
+
+// 단축키 관리
+let selectedIcon = '🏠';
+let selectedColor = '#7b6ef6';
+let editingIndex = -1;
+
+// 기본 단축키 - 비어있음 (사용자가 직접 추가)
+const defaultShortcuts = [];
+
+// 추천 단축키 (사용자가 선택적으로 추가 가능)
+const suggestedShortcuts = [
+  { name: '네이버', url: 'https://www.naver.com', icon: 'N', color: '#03C75A', isText: true },
+  { name: '유튜브', url: 'https://www.youtube.com', icon: '▶', color: '#FF0000', isText: true },
+  { name: '틱톡', url: 'https://www.tiktok.com', icon: 't', color: '#000000', isText: true },
+  { name: 'ChatGPT', url: 'https://chat.openai.com', icon: '💬', color: '#10A37F', isText: false },
+  { name: 'Gemini', url: 'https://gemini.google.com', icon: '✨', color: 'linear-gradient(135deg, #4285F4, #DB4437)', isText: false },
+  { name: 'Claude', url: 'https://claude.ai', icon: '🤖', color: '#CC9B7A', isText: false },
+  { name: '조조아', url: 'https://metromartjowonwoo.github.io/jojoa/', icon: '🐾', color: 'linear-gradient(135deg, #FF6B9D, #FFA07A)', isText: false }
+];
+
+function manageShortcuts() {
+  document.getElementById('shortcutModal').style.display = 'flex';
+  renderShortcutsList();
+}
+
+function closeShortcutModal() {
+  document.getElementById('shortcutModal').style.display = 'none';
+  clearForm();
+}
+
+function selectIcon(icon) {
+  selectedIcon = icon;
+  document.querySelectorAll('.icon-option').forEach(el => el.classList.remove('selected'));
+  event.target.classList.add('selected');
+}
+
+function selectColor(color) {
+  selectedColor = color;
+  document.querySelectorAll('.color-option').forEach(el => el.classList.remove('selected'));
+  event.target.classList.add('selected');
+}
+
+function clearForm() {
+  document.getElementById('shortcutName').value = '';
+  document.getElementById('shortcutUrl').value = '';
+  selectedIcon = '🏠';
+  selectedColor = '#7b6ef6';
+  editingIndex = -1;
+  document.querySelectorAll('.icon-option').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('.color-option').forEach(el => el.classList.remove('selected'));
+}
+
+function addShortcut() {
+  const name = document.getElementById('shortcutName').value.trim();
+  const url = document.getElementById('shortcutUrl').value.trim();
+
+  if (!name || !url) {
+    alert('이름과 URL을 모두 입력해주세요!');
+    return;
+  }
+
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    alert('올바른 URL을 입력해주세요! (http:// 또는 https://로 시작)');
+    return;
+  }
+
+  const shortcuts = loadShortcuts() || defaultShortcuts;
+  
+  const newShortcut = {
+    name: name,
+    url: url,
+    icon: selectedIcon,
+    color: selectedColor,
+    isText: false
+  };
+
+  if (editingIndex >= 0) {
+    shortcuts[editingIndex] = newShortcut;
+  } else {
+    shortcuts.push(newShortcut);
+  }
+
+  saveShortcuts(shortcuts);
+  renderShortcuts();
+  renderShortcutsList();
+  clearForm();
+}
+
+// 추천 단축키 추가
+function addSuggested(index) {
+  const shortcuts = loadShortcuts() || [];
+  const suggested = suggestedShortcuts[index];
+  
+  // 이미 추가된 단축키인지 확인
+  if (shortcuts.some(s => s.url === suggested.url)) {
+    alert('이미 추가된 단축키입니다!');
+    return;
+  }
+  
+  shortcuts.push(suggested);
+  saveShortcuts(shortcuts);
+  renderShortcuts();
+  renderShortcutsList();
+  
+  // 성공 메시지
+  const btn = event.target.closest('.suggested-item');
+  const original = btn.style.borderColor;
+  btn.style.borderColor = 'var(--accent3)';
+  btn.style.background = 'rgba(52,211,153,0.1)';
+  setTimeout(() => {
+    btn.style.borderColor = original;
+    btn.style.background = '';
+  }, 500);
+}
+
+function deleteShortcut(index) {
+  if (!confirm('이 단축키를 삭제하시겠습니까?')) return;
+  
+  const shortcuts = loadShortcuts() || defaultShortcuts;
+  shortcuts.splice(index, 1);
+  saveShortcuts(shortcuts);
+  renderShortcuts();
+  renderShortcutsList();
+}
+
+function editShortcut(index) {
+  const shortcuts = loadShortcuts() || defaultShortcuts;
+  const shortcut = shortcuts[index];
+  
+  document.getElementById('shortcutName').value = shortcut.name;
+  document.getElementById('shortcutUrl').value = shortcut.url;
+  selectedIcon = shortcut.icon;
+  selectedColor = shortcut.color;
+  editingIndex = index;
+
+  document.querySelectorAll('.icon-option').forEach(el => {
+    if (el.textContent === selectedIcon) {
+      el.classList.add('selected');
+    }
+  });
+}
+
+function renderShortcuts() {
+  const shortcuts = loadShortcuts() || defaultShortcuts;
+  const container = document.getElementById('shortcuts');
+  
+  if (shortcuts.length === 0) {
+    // 빈 화면 - 안내 메시지
+    container.innerHTML = `
+      <div style="text-align:center;padding:2rem 1rem;">
+        <div style="font-size:48px;margin-bottom:1rem;opacity:0.3;">🔖</div>
+        <p style="color:var(--text3);font-size:13px;margin-bottom:1rem;">아직 추가된 단축키가 없습니다</p>
+        <button class="manage-btn" onclick="manageShortcuts()" style="font-size:13px;padding:8px 20px;">
+          ✨ 첫 단축키 추가하기
+        </button>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = shortcuts.map(s => {
+    const iconStyle = s.isText 
+      ? `background:${s.color};border-color:${s.color};`
+      : s.color.includes('gradient') 
+        ? `background:${s.color};border:none;`
+        : `background:${s.color};border-color:${s.color};`;
+    
+    const iconContent = s.isText 
+      ? `<span style="color:white;font-weight:bold;font-size:20px;">${s.icon}</span>`
+      : `<span style="color:white;font-size:18px;">${s.icon}</span>`;
+    
+    return `
+      <a href="${s.url}" target="_blank" class="shortcut-item">
+        <div class="shortcut-icon" style="${iconStyle}">
+          ${iconContent}
+        </div>
+        <span class="shortcut-label">${s.name}</span>
+      </a>
+    `;
+  }).join('');
+}
+
+function renderShortcutsList() {
+  const shortcuts = loadShortcuts() || defaultShortcuts;
+  const container = document.getElementById('shortcutsList');
+  
+  container.innerHTML = '<h3 style="font-size:14px;color:var(--text2);margin-bottom:1rem;">등록된 단축키</h3>' + 
+    shortcuts.map((s, i) => {
+      const iconStyle = s.isText 
+        ? `background:${s.color};border-color:${s.color};`
+        : s.color.includes('gradient') 
+          ? `background:${s.color};border:none;`
+          : `background:${s.color};border-color:${s.color};`;
+      
+      const iconContent = s.isText 
+        ? `<span style="color:white;font-weight:bold;">${s.icon}</span>`
+        : `<span style="color:white;">${s.icon}</span>`;
+      
+      return `
+        <div class="shortcut-item-edit">
+          <div class="edit-icon" style="${iconStyle}">
+            ${iconContent}
+          </div>
+          <div class="edit-info">
+            <div class="edit-name">${s.name}</div>
+            <div class="edit-url">${s.url}</div>
+          </div>
+          <div class="edit-actions">
+            <button class="icon-btn" onclick="editShortcut(${i})" title="수정">✏️</button>
+            <button class="icon-btn delete" onclick="deleteShortcut(${i})" title="삭제">🗑️</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+}
+
+function saveShortcuts(shortcuts) {
+  // 로컬 스토리지에 저장
+  localStorage.setItem('jojoa_shortcuts', JSON.stringify(shortcuts));
+  
+  // 로그인 상태면 클라우드에도 저장
+  if (currentUser) {
+    saveUserShortcuts(shortcuts);
+  }
+}
+
+function loadShortcuts() {
+  const saved = localStorage.getItem('jojoa_shortcuts');
+  return saved ? JSON.parse(saved) : null;
+}
+
+// 페이지 로드 시 단축키 렌더링
+window.addEventListener('DOMContentLoaded', () => {
+  // 로컬 스토리지 확인 - 없으면 빈 배열로 시작
+  if (!loadShortcuts()) {
+    saveShortcuts([]);
+  }
+  renderShortcuts();
+});
+
+// 모달 외부 클릭 시 닫기
+document.getElementById('shortcutModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'shortcutModal') {
+    closeShortcutModal();
+  }
+});
+</script>
+</body>
+</html>
